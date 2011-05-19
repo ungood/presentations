@@ -1,8 +1,12 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using Raven.Client.Document;
+using Futurama.Models;
+using Raven.Client;
+using Raven.Client.Embedded;
 using Raven.Client.Indexes;
+using Raven.Client.Linq;
 
 namespace Futurama
 {
@@ -10,22 +14,25 @@ namespace Futurama
     {
         private static void Main(string[] args)
         {
-            var store = new DocumentStore {
-                Url = "http://localhost:8080",
-            };
-            store.Initialize();
+            var demo = new Demo();
+            demo.CreateCharacters();
+            demo.LoadAll();
+            //demo.CreateVotes();
+            //demo.LoadIncludes();
+            //demo.IndexedQuery();
 
-            using(var session = store.OpenSession())
-            {
-                var query = session.Query<CharacterPopularityView, CharacterPopularityViewIndex>()
-                    .Customize(x => x.WaitForNonStaleResults());
+            Console.WriteLine("PRESS ENTER");
+            Console.ReadLine();
+        }
 
-                var popularity = from view in query
-                    orderby view.VoteTotal descending
-                    select view;
+        public Program()
+        {
 
-                Print(popularity);
-            }
+        }
+
+        public void Run()
+        {
+            
         }
 
         public static void Print <T>(IQueryable<T> query)

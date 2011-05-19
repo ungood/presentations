@@ -1,167 +1,131 @@
-﻿//using System;
-//using System.Linq;
-//using System.Reflection;
-//using Raven.Client;
-//using Raven.Client.Document;
-//using Raven.Client.Indexes;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using Futurama.Models;
+using Raven.Client;
+using Raven.Client.Embedded;
+using Raven.Client.Indexes;
+using Raven.Client.Linq;
 
-//namespace Futurama
-//{
-//    public class Demo
-//    {
-//        private readonly IDocumentStore store;
+namespace Futurama
+{
+    public class Demo
+    {
+        private readonly IDocumentStore store;
 
-//        public Demo()
-//        {
-//            store = new DocumentStore {
-//                Url = "http://localhost:8080",
-//            };
-//            store.Initialize();
-//        }
+        public Demo()
+        {
+            store = new EmbeddableDocumentStore {
+                DataDirectory = "C:\\temp\\futurama",
+                UseEmbeddedHttpServer = true,
+            };
+            store.Initialize();
 
-//        public void DoStuff()
-//        {
-//            LoadAll();
-//        }
+            IndexCreation.CreateIndexes(Assembly.GetExecutingAssembly(), store);
+        }
 
-//        #region Create Characters
+        public void CreateCharacters()
+        {
+            using(var session = store.OpenSession())
+            {
+                foreach(var character in Character.MockData())
+                    session.Store(character);
+                session.SaveChanges();
+            }
+        }
 
-//        public void CreateCharacters()
-//        {
-//            using(var session = store.OpenSession())
-//            {
-//                var bender = new Character("Bender", "Alcoholic", "Chain-smoker", "Shiny metal ass");
-//                bender.BestFriend = "characters/2"; // Fry
-//                bender.Appearances.Add(new Appearance {Episode = "episode/1", TimeOnScreen = 5});
+        public void CreateVotes()
+        {
+            using(var session = store.OpenSession())
+            {
+                foreach(var vote in PopularityVote.MockData())
+                    session.Store(vote);
 
-//                var fry = new Character("Fry", "Dumb", "From the past");
-//                var flexo = new Character("Flexo", "Evil", "Goatee");
+                session.SaveChanges();
+            }
+        }
 
-//                session.Store(bender);
-//                session.Store(fry);
-//                session.Store(flexo);
-//                session.SaveChanges();
-//            }
-//        }
+        public void LoadNested()
+        {
+            using(var session = store.OpenSession())
+            {
+                var bender = session.Load<Character>("characters/1");
+                var friend = session.Load<Character>(bender.BestFriend);
 
-//        #endregion
+                Print(bender, friend);
+            }
+        }
 
-//        #region Query By Name
+        public void LoadIncludes()
+        {
+            using(var session = store.OpenSession())
+            {
+                var bender = session.Include<Character>(o => o.BestFriend)
+                    .Load("characters/1");
+                var friend = session.Load<Character>(bender.BestFriend);
 
-//        public void QueryByName(string name)
-//        {
-//            using(var session = store.OpenSession())
-//            {
-//                var query = from robot in session.Query<Character>()
-//                    where robot.Name.StartsWith(name)
-//                    select robot;
+                Print(bender, friend);
+            }
+        }
 
-//                Print(query);
-//            }
-//        }
+        public void LoadAll()
+        {
+            using(var session = store.OpenSession())
+            {
+                var characters = session.Load<Character>("characters/1", "characters/2");
+                Print(characters);
+            }
+        }
 
-//        #endregion
+        public void QueryByName(string name)
+        {
+            using(var session = store.OpenSession())
+            {
+                var query = from robot in session.Query<Character>()
+                    where robot.Name.StartsWith(name)
+                    select robot;
 
-//        #region Loading - Nested
 
-//        public void LoadNested()
-//        {
-//            using(var session = store.OpenSession())
-//            {
-//                var bender = session.Load<Character>("characters/1");
-//                var friend = session.Load<Character>(bender.BestFriend);
+                Print(query);
+            }
+        }
 
-//                Print(bender, friend);
-//            }
-//        }
+        public void QueryByTrait(string trait)
+        {
+            using(var session = store.OpenSession())
+            {
+                var query = session.Advanced.LuceneQuery<Character>()
+                    .WhereContains("Traits", trait);
+                Print(query);
+            }
+        }
 
-//        #endregion
+        public void IndexedQuery()
+        {
+            using(var session = store.OpenSession())
+            {
+                var query = session.Query<CharacterTotalVote, CharacterTotalVoteIndex>()
+                    .Customize(x => x.WaitForNonStaleResults());
 
-//        #region Loading - Includes
+                var popularity = from view in query
+                    orderby view.VoteTotal descending
+                    select view;
 
-//        public void LoadIncludes()
-//        {
-//            using(var session = store.OpenSession())
-//            {
-//                var bender = session.Include<Character>(o => o.BestFriend)
-//                    .Load("characters/1");
-//                var friend = session.Load<Character>(bender.BestFriend);
+                Print(popularity);
+            }
+        }
 
-//                Print(bender, friend);
-//            }
-//        }
+        public static void Print <T>(IEnumerable<T> query)
+        {
+            foreach(var item in query.ToArray())
+                Console.WriteLine(item);
+        }
 
-//        #endregion
-
-//        #region Loading - All
-
-//        public void LoadAll()
-//        {
-//            using(var session = store.OpenSession())
-//            {
-//                var characters = session.Load<Character>("characters/1", "characters/2");
-//                Print(characters);
-//            }
-//        }
-
-//        #endregion
-
-//        #region Create Votes
-
-//        public void CreateVotes()
-//        {
-//            using(var session = store.OpenSession())
-//            {
-//                var rand = new Random();
-
-//                for(int i = 0; i < 100; i++)
-//                {
-//                    var vote = new PopularityVote {
-//                        CharacterId = "characters/" + rand.Next(1, 4),
-//                        Delta = rand.Next(-1, 2)
-//                    };
-
-//                    session.Store(vote);
-//                }
-
-//                session.SaveChanges();
-//            }
-//        }
-
-//        #endregion
-
-//        #region Create Indexes
-
-//        public void CreateIndexes()
-//        {
-//            IndexCreation.CreateIndexes(Assembly.GetExecutingAssembly(), store);
-//        }
-
-//        #endregion
-
-//        #region Indexed Query
-
-//        public void IndexedQuery()
-//        {
-//            using(var session = store.OpenSession())
-//            {
-//                var query = session.Query<CharacterPopularityView, CharacterPopularityViewIndex>()
-//                    .Customize(x => x.WaitForNonStaleResults());
-
-//                var popularity = from view in query
-//                    orderby view.VoteTotal descending
-//                    select view;
-
-//                Print(popularity);
-//            }
-//        }
-
-//        #endregion
-
-//        #region Utility Stuff
-
-//        
-
-//        #endregion
-//    }
-//}
+        public static void Print(params Character[] objects)
+        {
+            foreach(var item in objects)
+                Console.WriteLine(item);
+        }
+    }
+}
