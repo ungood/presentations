@@ -1,0 +1,85 @@
+* What is a document database?
+	* A database that stores documents, obviously.
+	* Documents can store primitives, arrays, dictionaries, and nested objects.
+	* Documents are independent, non-relational
+		* This affects design.
+	* Documents are usually considered to be in "collections"
+		* "table"
+		* schema-less
+	* Queries against a Document DB are _always_ done through an Index.
+		* "view"
+
+* What RavenDB is not?
+	* Competitors: CouchDB / MongoDB.
+	* Notorious but unfair reputation: Difficult
+	* All indexes must be predefined: written in Erlang/JavaScript
+
+* What RavenDB is?
+	* In / For .NET
+	* Ad-hoc LINQ queries
+	* Safe by default
+	* Extensible
+	* Fast
+
+* Environment setup
+	* Create project
+	* install-package ravendb-embedded
+	* Construct EmbeddableDocumentStore
+		* UseEmbeddedHttpServer
+	
+* Show a bit of the HTTP API
+	* episodes/1
+		* name: Space Pilot 3000
+		* writers: ["David Cohen", "Matt Groening"]
+		* guests : [{ actor: 'Dick Clark', role: 'himself'}]
+	* episodes/2
+		* name: The Series Has Landed
+		* writers: ["Ken Keeler"]
+		* references: ["pac-man", "monsanto"]
+	* /docs/episodes/1
+	* /indexes/dynamic?query=Name:The*
+	* /indexes/dynamic?query=Guests,Actor:"Dick Clark"
+	* Show that Raven has created an index for us, dynamically.
+* Client API
+	* Storing documents - Create Characters
+	* Load
+		* LoadNested
+		* LoadIncludes
+		* LoadMany
+	* Ad-hoc querying - QueryByName
+	* Lucene querying - QueryByTraits
+	* Index querying
+		* CharacterTotalVoteIndex
+		* IndexCreation.CreateIndexes
+		* Query<Type, Index>
+	* Extensibility
+		* MEF Framework
+		* PUT Trigger - SumTimeOnScreenTrigger
+
+public CharacterTotalVoteIndex()
+{
+    Map = votes =>
+        from vote in votes
+        select new {
+            vote.CharacterId,
+            VoteTotal = vote.Delta
+        };
+
+    Reduce = mapped => from vote in mapped
+        group vote by vote.CharacterId
+        into g
+        select new {
+            CharacterId = g.Key,
+            VoteTotal = g.Sum(o => o.VoteTotal)
+        };
+
+    TransformResults = (database, results) => from result in results
+        let character = database.Load<Character>(result.CharacterId)
+        select new {
+            result.CharacterId,
+            CharacterName = character.Name,
+            result.VoteTotal
+        };
+
+    SortOptions.Add(x => x.VoteTotal, Raven.Abstractions.Indexing.SortOptions.Int);
+}
