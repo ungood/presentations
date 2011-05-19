@@ -12,30 +12,25 @@ namespace Futurama
 {
     internal class Program
     {
-        private static void Main(string[] args)
+        private static void Main()
         {
-            var demo = new Demo();
-            demo.CreateCharacters();
-            demo.LoadAll();
-            //demo.CreateVotes();
-            //demo.LoadIncludes();
-            //demo.IndexedQuery();
-
+            new Program().Run();
+            
             Console.WriteLine("PRESS ENTER");
             Console.ReadLine();
         }
 
-        public Program()
+        private Program()
         {
 
         }
 
-        public void Run()
+        private void Run()
         {
             
         }
 
-        public static void Print <T>(IQueryable<T> query)
+        public static void Print <T>(IEnumerable<T> query)
         {
             foreach(var item in query.ToArray())
                 Console.WriteLine(item);
